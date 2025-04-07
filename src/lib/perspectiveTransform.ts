@@ -1,7 +1,4 @@
 
-// This is a utility function to perform a perspective transform of an image
-// using the fabric.js library for better transformation quality
-
 import { fabric } from 'fabric';
 
 interface Point {
@@ -21,50 +18,41 @@ export const getPerspectiveTransform = async (
       const canvas = new fabric.Canvas(null, {
         width,
         height,
-        backgroundColor: 'white',
+        backgroundColor: 'transparent',
       });
 
       // Load the image
       fabric.Image.fromURL(imageUrl, (img) => {
-        // Calculate the scale ratio between the original image and the canvas
-        const scaleX = img.width ? width / img.width : 1;
-        const scaleY = img.height ? height / img.height : 1;
-        
-        // Corners in the destination image
-        const destPoints = [
-          { x: 0, y: 0 },
-          { x: width, y: 0 },
-          { x: width, y: height },
-          { x: 0, y: height },
-        ];
-        
-        // Add the image to the canvas with a clip path defined by source points
-        img.set({
+        if (!img.width || !img.height) {
+          reject(new Error("Failed to load image dimensions"));
+          return;
+        }
+
+        // Apply the perspective transform
+        // This uses fabric's clipPath feature to create the effect
+        const clipPath = new fabric.Polygon(sourcePoints, {
           left: 0,
           top: 0,
-          scaleX,
-          scaleY,
-          originX: 'left',
-          originY: 'top',
+          absolutePositioned: true,
         });
-        
-        // Create a polygon from the source points
-        const clipPath = new fabric.Polygon(sourcePoints.map(p => ({ x: p.x, y: p.y })), {
+
+        // Create a new image with the original dimensions
+        const outputImg = new fabric.Image(img.getElement(), {
           left: 0,
           top: 0,
-          fill: 'transparent',
+          width: width,
+          height: height,
+          scaleX: width / img.width,
+          scaleY: height / img.height,
+          clipPath: clipPath,
+          absolutePositioned: true,
         });
         
-        // Set the clip path on the image
-        img.clipPath = clipPath;
-        
-        // Add to canvas
-        canvas.add(img);
-        
-        // Apply perspective transform
+        // Add image to canvas
+        canvas.add(outputImg);
         canvas.renderAll();
         
-        // Get the data URL of the resulting image
+        // Get the data URL
         const dataURL = canvas.toDataURL({
           format: 'png',
           quality: 1,
